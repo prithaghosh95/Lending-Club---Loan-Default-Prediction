@@ -1,0 +1,430 @@
+---
+title: "IDS 572 - Assignment 1"
+author: "Pritha Ghosh,Anoop Gopalam,Tejaswi Cherukuri"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## R Markdown
+
+This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
+
+When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
+
+
+```{r}
+library(tidyverse)
+library(lubridate)
+library(ggplot2)
+library(dplyr)
+```
+````{r}
+#Load the data
+lcdf <- read_csv('lcDataSample5m.csv')
+#There are total 146 variables
+````
+````{r}
+#Grouping the data by loan status 
+lcdf %>% group_by(loan_status) %>% tally()
+#There are 3 types of loan status - Charged Off, Current,Fully Paid.
+#Number of Charged off loans is 11827, number of fully paid loans is 69195 and number of current loans is 1.
+
+#Considering only Charged Off and Fully Paid Loans
+lcdf <- lcdf %>% filter(loan_status == "Fully Paid" | loan_status == "Charged Off")
+
+#Number of charged off loans = 11827 and fully paid loans = 69195
+totals<-c(11827,69195)
+#The categories
+categ<-c("Charged Off","Fully Paid")
+#Formula for percentage of each category of loan
+pctg<-round((totals/sum(totals))*100)
+df<-data.frame(totals,categ)
+#Plotting a bar graph
+ggplot(data=df, aes(x=categ, y=totals)) +
+  geom_bar(stat="identity", fill="steelblue")+
+  geom_text(aes(label=totals), vjust=-0.2, size=3)+
+  theme_minimal()
+
+
+#Plotting a pie chart
+categ_pctg<-paste(categ,pctg,"%")
+ggplot(data=df, aes(x="", y=totals, fill=categ_pctg)) +
+  geom_bar(stat="identity", width=1, color="white") +
+  coord_polar("y", start=150) +
+  theme_void() + 
+  theme(legend.position="bottom") +
+  geom_text(aes(y = totals, label =""), color = "black", size=3) +
+  scale_fill_brewer(palette="Set2")+ggtitle("Proportion of loan defaults")
+
+  
+#Therefore we can see that the proportion of default loans is 15% and the proportion of Fully paid loans is 85%.
+````
+````{r}
+#How does loan status vary by loan grade
+loan_by_grade=as.data.frame(table(lcdf$loan_status, lcdf$grade))
+view(loan_by_grade)
+#We can see the number of Default vs Paid Off loans for each grade - A,B,C,D,E,F and G.
+
+totals_by_grade= as.data.frame(lcdf %>% group_by(grade) %>% tally())
+view(totals_by_grade)
+#We can see the total number of loans for each grade
+
+colnames(loan_by_grade)=c('loan_status', 'grade', 'freq')
+#Renaming the columns 
+
+loans_total<-merge(loan_by_grade,totals_by_grade, by='grade')
+view(loans_total)
+loans_total['rate']=(loans_total$freq/loans_total$n)*100
+#Calculating the rate for both Default and Paid Off Loans
+view(loans_total)
+default_rate<-subset(loans_total,loan_status=="Charged Off")
+#Filtering out the default loan rates
+view(default_rate)
+
+ggplot(default_rate)+aes(x=grade,y=rate,fill=grade)+
+  geom_bar(stat="identity")+xlab("Grade")+ylab("Default Rate")
+  
+
+##Bar graph that shows that rate of default increases as we move from Grade A to Grade G.
+
+#How does loan status vary by loan sub-grade
+loan_by_subgrade=as.data.frame(table(lcdf$loan_status, lcdf$sub_grade))
+view(loan_by_subgrade)
+#There are 5 sub-grades each within each loan grade
+
+totals_by_subgrade= as.data.frame(lcdf %>% group_by(sub_grade) %>% tally())
+view(totals_by_subgrade)
+#Counting the number of loans in each sub-grade.
+
+colnames(loan_by_subgrade)=c('loan_status', 'sub_grade', 'freq')
+#Renaming the columns
+
+loans_total2<-merge(loan_by_subgrade,totals_by_subgrade, by='sub_grade')
+loans_total2['rate']=(loans_total2$freq/loans_total2$n)*100
+view(loans_total2)
+#Calculating the rate of Default and Paid Off loans within each sub-grade.
+
+default_rate2<-subset(loans_total2,loan_status=="Charged Off")
+view(default_rate2)
+ggplot(default_rate2)+aes(x=sub_grade,y=rate,fill=sub_grade)+
+geom_bar(stat="identity")+xlab("Sub-Grade")+ylab("Default Rate")+
+scale_x_discrete(guide = guide_axis(n.dodge=3))
+
+#Calculating and depicting the default rate for each sub-grade.In general, the trend is that the default rate increases as we move from sub-grade A1 to G5. There is an obvious break in the pattern at G3, which can be explained due to the very few number of loans.
+````
+````{r}
+#How does number of loans, loan amount, interest rate vary by grade
+num_loans<-as.data.frame(lcdf %>% group_by(grade) %>% tally())
+view(num_loans)
+#Number of loans by grade
+ggplot(num_loans)+aes(x=grade,y=n,fill=grade)+
+  geom_bar(stat="identity")+xlab("Grade")+ylab("Number of loans")
+
+#Bar Graph to depict the number of loans in each grade. Max number of loans in Grade B and min number of loans in Grade G.
+
+loan_amt_by_grade<-as.data.frame(lcdf %>% group_by(grade) %>% summarise(mean(loan_amnt)))
+#Loan amount by grade
+colnames(loan_amt_by_grade)=c('grade','loan_amount')
+view(loan_amt_by_grade)
+ggplot(loan_amt_by_grade)+aes(x=grade,y=loan_amount,fill=grade)+geom_bar(stat="identity")+xlab("Grade")+ylab("Loan Amount")
+
+#Bar graph to depict loan amount by grade.
+#Grade A has the highest mean loan amount and Grade F has the lowest mean loan amount.
+
+#Interest rate by grade
+int_rate_by_grade<-as.data.frame(lcdf %>% group_by(grade) %>% summarise(mean(int_rate)))
+colnames(int_rate_by_grade)=c('grade','int_rate')
+view(int_rate_by_grade)
+ggplot(int_rate_by_grade)+aes(x=grade,y=int_rate,fill=grade)+geom_bar(stat="identity")+xlab("Grade")+ylab("Interest Rate")
+
+#As we move up from Grade A to Grade G, the average interest rates increase as the risk of defaulting on loans increases.
+
+#Interest rate by sub-grade
+int_rate_by_subgrade<-as.data.frame(lcdf %>% group_by(sub_grade) %>% summarise(mean(int_rate)))
+colnames(int_rate_by_subgrade)=c('sub_grade','int_rate')
+view(int_rate_by_subgrade)
+ggplot(int_rate_by_subgrade)+aes(x=sub_grade,y=int_rate,fill=sub_grade)+
+  geom_bar(stat="identity")+xlab("Sub-Grade")+ylab("Interest Rate")+
+  scale_x_discrete(guide = guide_axis(n.dodge=5))
+
+# The bar graph depicts the average interest rate increasing as we move from sub-grade A1 to sub-grade G5. This can be attributed to the fact that the risk of defaulting on loans also increases as we move from A1 to G5.
+````
+
+````{r}
+#what are people borrowing money for (purpose)
+
+#number of loans by purpose
+loans_by_purpose<-as.data.frame(lcdf %>% group_by(purpose) %>% tally())
+colnames(loans_by_purpose)=c('purpose','number_of_loans')
+view(loans_by_purpose)
+
+#avg amounts by purpose
+amt_by_purpose<-as.data.frame(lcdf %>% group_by(purpose) %>% summarize(mean(loan_amnt)))
+colnames(amt_by_purpose)=c('purpose','avg_amt')
+view(amt_by_purpose)
+
+ggplot(amt_by_purpose)+aes(x=purpose,y=avg_amt,fill=purpose)+geom_bar(stat="identity")+xlab("Purpose")+ylab("Loan Amount")+
+  theme(axis.text.x=element_text(angle=90,hjust=1))
+
+#Bar graph depicting the average amounts by purpose. Small businesses, credit cards, debt consolidations and house categories are the ones with the highest borrowed loan amount. 
+
+#loans by grade
+table(lcdf$grade, lcdf$loan_status)
+ggplot(lcdf,aes(x=grade,fill=grade))+geom_bar(width=0.5)+facet_wrap(~loan_status)+
+  xlab("Grade")+ylab("Number of loans")
+
+#Grade C has the highest number of defaulted loans and Grade G has the lowest number of defaulted loans. 
+#Grade B has the highest number of Fully Paid loans and Grade G has the lowest number of Fully Paid loans.
+
+##defaults by purpose
+loans_by_purpose_status<-as.data.frame(lcdf %>% group_by(purpose,loan_status) %>% tally())
+totals_by_purpose= as.data.frame(lcdf %>% group_by(purpose) %>% tally())
+view(totals_by_purpose)
+total<-merge(loans_by_purpose_status,totals_by_purpose, by='purpose')
+colnames(total)<-c('purpose','loan_status','freq','total')
+view(total)
+total['rate']=(total$freq/total$total)*100
+def_rate<-subset(total,loan_status=="Charged Off")
+view(def_rate)
+ggplot(def_rate)+aes(x=purpose,y=rate,fill=purpose)+
+  geom_bar(stat="identity")+xlab("Purpose")+ylab("Default Rate")+
+  theme(axis.text.x=element_text(angle=90,hjust=1))
+
+#The rate of defaults are highest for Renewable Energy, Small Businesses, Moving and House categories. 
+
+#Default rate by grade and purpose
+grade_purpose <- lcdf%>% group_by(purpose, grade) %>% summarise(Count = n(), AvgLoanAmt = mean(loan_amnt), MedianLoanAmt = median(loan_amnt), DefaultRate = (sum(loan_status == "Charged Off")/Count)*100) %>% arrange(desc(DefaultRate))
+view(grade_purpose)
+````
+````{r}
+#actual term for loans
+
+#checking the format of the date columns- last payment received date and loan issue date
+head(lcdf[, c("last_pymnt_d", "issue_d")])
+#The first column is in character format and the second column is in date format 
+
+#converting last payment received date to a date type variable
+lcdf$last_pymnt_d<-paste(lcdf$last_pymnt_d, "-01", sep = "")
+lcdf$last_pymnt_d<-parse_date_time(lcdf$last_pymnt_d,  "myd")
+
+
+#computing the duration between the two dates in years
+lcdf$actualTerm <- ifelse(lcdf$loan_status=="Fully Paid", as.duration(lcdf$issue_d  %--% lcdf$last_pymnt_d)/dyears(1), 3)
+
+table(lcdf$grade,lcdf$actualTerm)
+term_plot<-boxplot(lcdf$actualTerm~lcdf$grade,data=lcdf, main="Actual Term",xlab="Loan Grade", ylab="Actual Term")
+
+#The actual term increases as we move from grade A to grade G. 
+````
+````{r}
+#Annual Return
+
+#unadjusted annual return
+lcdf$annRet <- ((lcdf$total_pymnt-lcdf$funded_amnt)/lcdf$funded_amnt)*(12/36)*100
+
+#actual return
+lcdf$actualReturn <- ifelse(lcdf$actualTerm>0, ((lcdf$total_pymnt -lcdf$funded_amnt)/lcdf$funded_amnt)*(1/lcdf$actualTerm)*100, 0)
+
+lcdf%>% group_by(loan_status) %>% summarise(intRate=mean(int_rate),totRet=mean((total_pymnt-funded_amnt)/funded_amnt), avgActRet=mean(actualReturn))
+#There is a return rate of -0.351 for Charged Off loans. This means that for every 1 dollar, there is a loss of 0.351.
+
+#Return Rate by Grade for Charged Off Loans
+ReturnRate_Group<-lcdf%>% filter(loan_status == "Charged Off") %>% group_by(grade) %>% summarise(AvgAnnRet = mean(annRet), MedianAnnRet = median(annRet))
+ggplot(ReturnRate_Group)+aes(x=grade,y=AvgAnnRet,fill=grade,color=grade)+geom_bar(stat="identity")+xlab("Grade")+ylab("Return Rate")
+
+
+#The return rate is negative for all the grades for Charged Off loans, which indicates loss. The loss is highest for Grade E. 
+
+#Returns by interest rate
+summary(subset(lcdf, select = c(actualReturn, int_rate), loan_status == "Fully Paid"))
+
+#Return Rate by Grade
+ReturnRate_Group <- lcdf %>% group_by(grade) %>% summarise(mean(actualReturn))
+view(ReturnRate_Group)
+ggplot(ReturnRate_Group)+aes(x=grade,y=`mean(actualReturn)`,fill=grade,color=grade)+geom_bar(stat="identity")+xlab("Grade")+ylab("Return Rate")
+
+#Return rate increases as we move from Grade A to Grade G, with the increase in the riskiness of the loan, it dips slightly for Grade E and G.
+
+#Return Rate by Sub-Grade
+ReturnRate_SubGroup <- lcdf %>% group_by(sub_grade) %>% summarise(mean(actualReturn))
+view(ReturnRate_SubGroup)
+ggplot(ReturnRate_SubGroup)+aes(x=sub_grade,y=`mean(actualReturn)`,fill=sub_grade,color=sub_grade)+geom_bar(stat="identity")+xlab("Sub-Grade")+ylab("Return Rate")+
+  theme(axis.text.x=element_text(angle=90,hjust=1))
+
+#Return rate increases as we move from sub-grade A1 to sub-grade G5.
+#Based on the above analysis, I would invest in the loans of Grade F as they would give me the highest returns.
+````
+````{r}
+#derived attributes - Proportion of satisfactory bankcard accounts
+lcdf$propSatisBankcardAccts <- ifelse(lcdf$num_bc_tl>0, lcdf$num_bc_sats/lcdf$num_bc_tl, 0)
+bc_acc <- lcdf %>% group_by(grade) %>% summarize(mean(propSatisBankcardAccts))
+view(bc_acc)
+colnames(bc_acc)=c('grade','prop_satisfactory_bankcard_acc')
+ggplot(bc_acc)+aes(x=grade,y=prop_satisfactory_bankcard_acc,fill=grade)+geom_bar(stat="identity")+xlab("Grade")+ylab("Prop of Satisfactory Bank Card Accounts")
+
+#With increase in proportion of satisfactory bank card accounts, rate of default tends to increase.
+
+#derived attribute - length of borrower's history with LC
+lcdf$earliest_cr_line<-paste(lcdf$earliest_cr_line, "-01", sep = "")
+lcdf$earliest_cr_line<-parse_date_time(lcdf$earliest_cr_line, "myd")
+lcdf$borrHistory <- as.duration(lcdf$earliest_cr_line %--% lcdf$issue_d  ) / dyears(1)
+ggplot(lcdf)+aes(x=grade,y=borrHistory ,fill=grade)+geom_bar(stat="identity")+xlab("Grade")+ylab("Borrower History")
+
+#With increase in the duration of borrower history, the rate of default on loans tends to decrease.
+
+#Another new attribute: ratio of openAccounts to totalAccounts
+lcdf$PropOpenAcc <- ifelse(lcdf$total_acc>0, lcdf$open_acc/lcdf$total_acc, 0)
+grade_PropOpenAcc <- lcdf %>% group_by(grade) %>% summarize(mean(PropOpenAcc))
+colnames(grade_PropOpenAcc)<-c('grade','open_acc_prop')
+view(grade_PropOpenAcc)
+ggplot(grade_PropOpenAcc)+aes(x=grade,y=open_acc_prop,fill=grade)+geom_bar(stat="identity")+xlab("Grade")+ylab("Proportion of Open Acc")
+
+#With increase in the ratio of open accounts, the rate of default on loans tends to increase.
+````
+````{r}
+#Missing values
+#Drop vars with all empty values
+lcdf <- lcdf %>% select_if(function(x){!all(is.na(x))})
+#Proportions of missing values in each column
+colMeans(is.na(lcdf))[colMeans(is.na(lcdf))>0]
+#Remove variables which have more than 60% missing values
+nm<-names(lcdf)[colMeans(is.na(lcdf))>0.6]
+lcdf <- lcdf %>% select(-nm)
+view(lcdf)
+
+#Data with less than 60% missing values
+lcx <- lcdf[, colMeans(is.na(lcdf)) < 0.60]
+view(lcx)
+
+#Handling the number of months since the borrower's last delinquency
+ lcx<- lcx %>% replace_na(list(mths_since_last_delinq = 500))
+#Replacing it with 500, which is a value much higher than what we see in our data.
+
+
+boxplot(lcdf$revol_util,data=lcdf, main="A Boxplot of Revol_util",
+        xlab="", ylab="" ,col= c("blue"),ylim=c(0,200))
+#For revol_util, suppose we want to replace the missing values by the median
+
+lcx<- lcx %>% replace_na(list(revol_util=median(lcx$revol_util, na.rm=TRUE)))
+
+
+#Handling bc_open_to_buy, mo_sin_old_il_acct,mths_since_recent_bc,mths_since_recent_inq,num_tl_120dpd_2m,percent_bc_gt_75,bc_util
+boxplot(lcdf$bc_open_to_buy,data=lcdf, main="A Boxplot of bc_open_to_buy",
+        xlab="", ylab="" ,col= c("red"),ylim=c(0,300000))
+boxplot(lcdf$num_tl_120dpd_2m,data=lcdf, main="A Boxplot of num_tl_120dpd_2m",xlab="", ylab="" ,col= c("red"))
+boxplot(lcdf$percent_bc_gt_75,data=lcdf, main="A Boxplot of percent_bc_gt_75",xlab="", ylab="" ,col= c("red"))
+boxplot(lcdf$bc_util,data=lcdf, main="A Boxplot of percent_bc_util", xlab="", ylab="" ,col= c("blue"))
+boxplot(lcdf$bc_open_to_buy,data=lcdf, main="A Boxplot of bc_open_to_buy",
+        xlab="", ylab="" ,col= c("red"),ylim=c(0,300000))
+
+
+
+lcx<- lcx %>% replace_na(list(bc_open_to_buy=median(lcdf$bc_open_to_buy, na.rm=TRUE), mo_sin_old_il_acct=1000, mths_since_recent_bc=1000, mths_since_recent_inq=50, num_tl_120dpd_2m = median(lcdf$num_tl_120dpd_2m, na.rm=TRUE),percent_bc_gt_75 = median(lcdf$percent_bc_gt_75, na.rm=TRUE), bc_util=median(lcdf$bc_util, na.rm=TRUE) ))
+view(lcx)
+#We are using median to replace most of the missing values as they are resistant to the effect of outliers, unlike mean. 
+#For variables that we believe can be a good predictor of defaults, we are considering a value greater than the maximum available value present in the dataset.
+
+##Putting the values in the original data set now 
+lcdf<- lcdf %>% replace_na(list(mths_since_last_delinq=500, revol_util=median(lcdf$revol_util, na.rm=TRUE), bc_open_to_buy=median(lcdf$bc_open_to_buy, na.rm=TRUE), mo_sin_old_il_acct=1000, mths_since_recent_bc=1000, mths_since_recent_inq=50, num_tl_120dpd_2m = median(lcdf$num_tl_120dpd_2m, na.rm=TRUE),percent_bc_gt_75 = median(lcdf$percent_bc_gt_75, na.rm=TRUE), bc_util=median(lcdf$bc_util, na.rm=TRUE) ))
+
+#check if all missing values have been addressed
+colMeans(is.na(lcdf))[colMeans(is.na(lcdf))>0]
+#There are 3 columns still with missing values - emp_title, last_pymnt_d, last_credit_pull_d
+
+#checking last_pymnt_d
+check_1<-lcdf %>% filter(is.na(lcdf$last_pymnt_d)) %>% group_by(loan_status) %>% tally()
+view(check_1)
+#There are 45 charged off loans, which cause the missing values 
+
+check_2<-lcdf %>% filter(is.na(lcdf$last_credit_pull_d)) %>% group_by(loan_status) %>% tally()
+view(check_2)
+#There are 12 Fully paid off loans 
+
+view(lcdf)
+````
+````{r}
+#Data leakage
+
+#Dropping these variables that cause data leakage and are not relevant
+lcdf <- lcdf %>% select(-c(funded_amnt_inv, term, emp_title, pymnt_plan, title, zip_code, addr_state, out_prncp, out_prncp_inv, total_pymnt_inv, total_rec_prncp, total_rec_int, last_credit_pull_d, policy_code, disbursement_method, debt_settlement_flag, hardship_flag, application_type))
+#Dropping collection recovery fee and recoveries as they would not be available to us when the loan was funded
+lcdf <- lcdf %>% select(-c(collection_recovery_fee,recoveries))
+#Dropping intial list status as its not relevant to our model
+lcdf <- lcdf %>% select(-c(initial_list_status))
+#Dropping number of inquiries since can change over time
+lcdf <- lcdf %>% select(-c(inq_last_6mths))
+#Dropping issue date as its irrelevent to our model
+lcdf <- lcdf %>% select(-c(issue_d))
+#Dropping last payment amounts and date since they can cause data leakage
+lcdf <- lcdf %>% select(-c(last_pymnt_amnt,last_pymnt_d))
+#Dropping the below columns for data leakage concerns
+lcdf <- lcdf %>% select(-c(annRet))
+view(lcdf)
+#Dropping some more columns that would not have been available at the time of loan funding
+lcdf <- lcdf %>% select(-c(chargeoff_within_12_mths,borrHistory))
+lcdf <- lcdf %>% select(-c(collections_12_mths_ex_med))
+#Dropping index column
+lcdf <- lcdf %>% select(-c(X1))
+#Dropping Return column due to data leakage 
+lcdf <- lcdf %>% select(-c(actualReturn))
+view(lcdf)
+#Dropping funded amount
+lcdf <- lcdf %>% select(-c(funded_amnt))
+#Dropping owed collection amt
+lcdf <- lcdf %>% select(-c(tot_coll_amt))
+#Dropping variables which would not have been available when loan was funded
+lcdf <- lcdf %>% select(-c(total_pymnt))
+lcdf <- lcdf %>% select(-c(total_rec_late_fee))
+view(lcdf)
+#Dropping open_acc and totalacc since we have a ratio open_acc/total_acc
+lcdf <- lcdf %>% select(-c(open_acc))
+lcdf <- lcdf %>% select(-c(total_acc))
+````
+````{r}
+#Uni variate analysis 
+library(pROC)
+
+#converting character type variables into factors first
+lcdf <- lcdf %>% mutate_if(is.character, as.factor)
+
+## Split the data into trn, text subsets
+#split the data into trn, tst subsets
+TRNFRACTION = 0.5 
+#Doing a 50-50 split between training and test subsets
+nr<-nrow(lcdf)
+
+trnIndex<- sample(1:nr, size = round(TRNFRACTION * nr), replace=FALSE)
+lcdfTrn <- lcdf[trnIndex, ]
+lcdfTst <- lcdf[-trnIndex, ]
+
+#Using the AUC function to predict the effect of all variables on the loan status
+aucAll<- sapply(lcdfTrn %>% mutate_if(is.factor, as.numeric) %>% select_if(is.numeric), auc, response=lcdfTrn$loan_status) 
+
+#To determine which variables have AUC >0.5
+pred<-aucAll[aucAll>0.5]
+view(pred)
+library(broom)
+
+tidy(aucAll[aucAll > 0.5]) %>% view()
+
+pred_auc<-as.data.frame(tidy(aucAll[aucAll > 0.5]))
+view(pred_auc)
+
+#converting it into a reportable format 
+ggplot(pred_auc)+aes(x=names,y=x,fill=names)+geom_bar(stat="identity")+xlab("Variables")+ylab("AUC Value")+
+theme(axis.text.x = element_text(angle=90, hjust=1))
+
+pred_auc2<-as.data.frame(tidy(aucAll[aucAll > 0.6]))
+view(pred_auc2)
+#converting it into a reportable format 
+ggplot(pred_auc2)+aes(x=names,y=x,fill=names)+geom_bar(stat="identity")+xlab("Variables")+ylab("AUC Value")+
+theme(axis.text.x = element_text(angle=90, hjust=1))
+
+#We can see that when the AUC threshold is set to 0.5 there are about 41 predictor variables, when we change the AUC threshold to 0.6 there are about 5 predictor variables.
+````
+
+Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
+----
